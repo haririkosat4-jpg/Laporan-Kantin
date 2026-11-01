@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Laporan Keuangan Kantin An-Najah</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Chart.js CDN (Grafik) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- CSS Khusus Mode Cetak / PDF -->
+  <style>
+    @media print {
+      #formTransaksiContainer, #btnHapusSemua, header button, .kolom-aksi, th:last-child, #areaFilter {
+        display: none !important;
+      }
+      body {
+        background-color: white !important;
+        padding: 0 !important;
+      }
+      .shadow-sm {
+        box-shadow: none !important;
+      }
+      .border {
+        border: 1px solid #e2e8f0 !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-slate-100 font-sans text-slate-800 p-4 md:p-8">
+
+  <div class="max-w-4xl mx-auto space-y-6">
+    <!-- Header -->
+    <header class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-800">Laporan Keuangan Kantin An-Najah</h1>
+        <p class="text-sm text-slate-500">Pencatatan Harian & Rekap Otomatis (Cloud Real-Time)</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="window.print()" class="bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow-sm">
+          <i data-lucide="printer" class="w-4 h-4"></i>
+          Cetak / PDF
+        </button>
+      </div>
+    </header>
+
+    <!-- Filter Rentang Waktu Laporan -->
+    <div id="areaFilter" class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+      <div class="flex items-center gap-2">
+        <div class="p-2 bg-indigo-100 text-indigo-600 rounded-lg">
+          <i data-lucide="filter" class="w-4 h-4"></i>
+        </div>
+        <span class="text-sm font-bold text-slate-700">Filter Periode Laporan:</span>
+      </div>
+      <select id="filterWaktu" class="w-full sm:w-auto p-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer">
+        <option value="semua">Semua Waktu (Keseluruhan)</option>
+        <option value="hari_ini">Hari Ini</option>
+        <option value="bulan_ini" selected>Bulan Ini</option>
+        <option value="tahun_ini">Tahun Ini</option>
+      </select>
+    </div>
+
+    <!-- Card Ringkasan Keuangan -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+        <div class="flex items-center gap-2 mb-2">
+          <div class="p-2 bg-emerald-100 rounded-lg text-emerald-600">
+            <i data-lucide="trending-up" class="w-4 h-4"></i>
+          </div>
+          <span class="text-xs font-semibold text-slate-500">Total Pemasukan</span>
+        </div>
+        <p id="totalPemasukan" class="text-lg font-bold text-emerald-600">Rp 0</p>
+      </div>
+
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+        <div class="flex items-center gap-2 mb-2">
+          <div class="p-2 bg-rose-100 rounded-lg text-rose-600">
+            <i data-lucide="trending-down" class="w-4 h-4"></i>
+          </div>
+          <span class="text-xs font-semibold text-slate-500">Total Pengeluaran</span>
+        </div>
+        <p id="totalPengeluaran" class="text-lg font-bold text-rose-600">Rp 0</p>
+      </div>
+
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+        <div class="flex items-center gap-2 mb-2">
+          <div class="p-2 bg-blue-100 rounded-lg text-blue-600">
+            <i data-lucide="wallet" class="w-4 h-4"></i>
+          </div>
+          <span class="text-xs font-semibold text-slate-500">Keuntungan Bersih</span>
+        </div>
+        <p id="totalUntung" class="text-lg font-bold text-blue-600">Rp 0</p>
+      </div>
+
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+        <div class="flex items-center gap-2 mb-2">
+          <div class="p-2 bg-indigo-100 rounded-lg text-indigo-600">
+            <i data-lucide="landmark" class="w-4 h-4"></i>
+          </div>
+          <span class="text-xs font-semibold text-slate-500">Saldo Kas Periode Ini</span>
+        </div>
+        <p id="totalSaldo" class="text-lg font-bold text-indigo-600">Rp 0</p>
+      </div>
+    </div>
+
+    <!-- Form Input Transaksi Cepat -->
+    <div id="formTransaksiContainer" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+      <div class="flex justify-between items-center mb-4">
+        <h2 id="formTitle" class="text-lg font-bold text-slate-800 flex items-center gap-2">
+          <i data-lucide="plus-circle" class="w-5 h-5 text-emerald-600"></i>
+          Catat Transaksi Cepat
+        </h2>
+        <button id="btnBatalEdit" class="hidden text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 cursor-pointer">
+          <i data-lucide="x" class="w-3.5 h-3.5"></i>
+          Batal Edit
+        </button>
+      </div>
+
+      <form id="formTransaksi" class="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">Tanggal</label>
+          <input type="date" id="tanggal" required class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">Tipe Transaksi</label>
+          <select id="tipe" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <option value="pemasukan">🟢 Pemasukan (Omset/Laku)</option>
+            <option value="pengeluaran">🔴 Pengeluaran (Belanja/Beli)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">Nominal (Rp)</label>
+          <input type="number" id="nominal" placeholder="Contoh: 50000" required class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">Kategori</label>
+          <select id="kategori" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <option value="Penjualan Harian">Penjualan Harian</option>
+            <option value="Belanja Bahan/Stok">Belanja Bahan/Stok</option>
+            <option value="Operasional Kantin">Operasional (Plastik, Gas, dll)</option>
+            <option value="Lain-lain">Lain-lain</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">Keterangan</label>
+          <input type="text" id="keterangan" placeholder="Contoh: Belanja Es & Cup" required class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+
+        <div class="md:col-span-5 mt-2">
+          <button id="btnSubmit" type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer">
+            <i data-lucide="save" class="w-4 h-4"></i>
+            Simpan Transaksi
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Grafik Keuangan -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+      <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+        <i data-lucide="bar-chart-3" class="w-5 h-5 text-blue-600"></i>
+        Grafik Pemasukan vs Pengeluaran (Berdasarkan Filter)
+      </h2>
+      <div class="relative h-60 w-full">
+        <canvas id="grafikKantin"></canvas>
+      </div>
+    </div>
+
+    <!-- Tabel Riwayat Transaksi -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+          <i data-lucide="history" class="w-5 h-5 text-indigo-600"></i>
+          Riwayat Transaksi
+        </h2>
+        <button id="btnHapusSemua" class="text-xs font-semibold text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 cursor-pointer">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          Reset Semua Data
+        </button>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold">
+            <tr>
+              <th class="p-3">Tanggal</th>
+              <th class="p-3">Kategori</th>
+              <th class="p-3">Keterangan</th>
+              <th class="p-3">Tipe</th>
+              <th class="p-3">Nominal</th>
+              <th class="p-3 text-center">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="tabelRiwayat" class="divide-y divide-slate-100">
+            <tr>
+              <td colspan="6" class="p-4 text-center text-slate-400 italic">Memuat data cloud Firebase...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase SDK & Script Logika Real-Time -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { 
+      getFirestore, 
+      collection, 
+      addDoc, 
+      onSnapshot, 
+      doc, 
+      deleteDoc, 
+      updateDoc 
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    // Konfigurasi Firebase Firestore milikmu
+    const firebaseConfig = {
+      apiKey: "AIzaSyBksyY-wdWyMgfg3yvyxDLDqNpgfH_hZtQ",
+      authDomain: "laporan-kantin-an-najah.firebaseapp.com",
+      projectId: "laporan-kantin-an-najah",
+      storageBucket: "laporan-kantin-an-najah.firebasestorage.app",
+      messagingSenderId: "995494169163",
+      appId: "1:995494169163:web:089181944afdc3fcdddbce",
+      measurementId: "G-8JC2W00KB3"
+    };
+
+    // Inisialisasi Firebase & Firestore
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const transaksiRef = collection(db, "transaksi");
+
+    let transaksi = [];
+    let editDocId = null;
+    let chartInstance = null;
+
+    const form = document.getElementById('formTransaksi');
+    const tabelRiwayat = document.getElementById('tabelRiwayat');
+    const btnHapusSemua = document.getElementById('btnHapusSemua');
+    const btnSubmit = document.getElementById('btnSubmit');
+    const btnBatalEdit = document.getElementById('btnBatalEdit');
+    const formTitle = document.getElementById('formTitle');
+    const inputTanggal = document.getElementById('tanggal');
+    const filterWaktu = document.getElementById('filterWaktu');
+
+    function resetTanggal() {
+      const today = new Date().toISOString().split('T')[0];
+      inputTanggal.value = today;
+    }
+
+    function formatRupiah(angka) {
+      return 'Rp ' + Number(angka).toLocaleString('id-ID');
+    }
+
+    function formatTanggalDisplay(strTanggal) {
+      if (!strTanggal) return '-';
+      const parts = strTanggal.split('-');
+      if (parts.length !== 3) return strTanggal;
+      const [yyyy, mm, dd] = parts;
+      const bulan = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+      return `${dd} ${bulan[parseInt(mm)-1]} ${yyyy}`;
+    }
+
+    function getFilteredTransaksi() {
+      const filter = filterWaktu.value;
+      const today = new Date().toISOString().split('T')[0];
+      const currentYearMonth = today.substring(0, 7);
+      const currentYear = today.substring(0, 4);
+
+      return transaksi.filter(t => {
+        if (!t.tanggal) return true;
+        if (filter === 'hari_ini') return t.tanggal === today;
+        if (filter === 'bulan_ini') return t.tanggal.startsWith(currentYearMonth);
+        if (filter === 'tahun_ini') return t.tanggal.startsWith(currentYear);
+        return true;
+      });
+    }
+
+    function updateChart(totalMasuk, totalKeluar) {
+      const ctx = document.getElementById('grafikKantin').getContext('2d');
+      if (chartInstance) chartInstance.destroy();
+
+      chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Total Pemasukan', 'Total Pengeluaran'],
+          datasets: [{
+            label: 'Nominal (Rp)',
+            data: [totalMasuk, totalKeluar],
+            backgroundColor: ['#10b981', '#f43f5e'],
+            borderRadius: 8,
+            barThickness: 45
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { callback: v => 'Rp ' + v.toLocaleString('id-ID') }
+            }
+          }
+        }
+      });
+    }
+
+    function updateUI() {
+      let totalMasuk = 0;
+      let totalKeluar = 0;
+
+      const filteredData = getFilteredTransaksi();
+      tabelRiwayat.innerHTML = '';
+
+      if (filteredData.length === 0) {
+        tabelRiwayat.innerHTML = `
+          <tr>
+            <td colspan="6" class="p-4 text-center text-slate-400 italic">Tidak ada transaksi pada periode ini.</td>
+          </tr>
+        `;
+      } else {
+        filteredData.sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal));
+
+        filteredData.forEach((t) => {
+          if (t.tipe === 'pemasukan') totalMasuk += t.nominal;
+          else totalKeluar += t.nominal;
+
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-slate-50 transition-colors border-b border-slate-100';
+          
+          const isMasuk = t.tipe === 'pemasukan';
+          const badgeTipe = isMasuk 
+            ? '<span class="bg-emerald-100 text-emerald-700 text-xs px-2.5 py-1 rounded-lg font-semibold">Pemasukan</span>'
+            : '<span class="bg-rose-100 text-rose-700 text-xs px-2.5 py-1 rounded-lg font-semibold">Pengeluaran</span>';
+          
+          const warnaNominal = isMasuk ? 'text-emerald-600 font-bold' : 'text-rose-600 font-bold';
+
+          tr.innerHTML = `
+            <td class="p-3 text-slate-600 font-medium">${formatTanggalDisplay(t.tanggal)}</td>
+            <td class="p-3 text-slate-800 font-medium">${t.kategori}</td>
+            <td class="p-3 text-slate-600">${t.keterangan}</td>
+            <td class="p-3">${badgeTipe}</td>
+            <td class="p-3 ${warnaNominal}">${formatRupiah(t.nominal)}</td>
+            <td class="p-3 text-center kolom-aksi">
+              <div class="flex items-center justify-center gap-1">
+                <button data-id="${t.docId}" class="btn-edit text-slate-400 hover:text-blue-600 p-1.5 rounded-lg transition-colors cursor-pointer" title="Edit Transaksi">
+                  <i data-lucide="pencil" class="w-4 h-4 pointer-events-none"></i>
+                </button>
+                <button data-id="${t.docId}" class="btn-hapus text-slate-400 hover:text-rose-600 p-1.5 rounded-lg transition-colors cursor-pointer" title="Hapus Transaksi">
+                  <i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i>
+                </button>
+              </div>
+            </td>
+          `;
+          tabelRiwayat.appendChild(tr);
+        });
+      }
+
+      const untung = totalMasuk - totalKeluar;
+
+      document.getElementById('totalPemasukan').innerText = formatRupiah(totalMasuk);
+      document.getElementById('totalPengeluaran').innerText = formatRupiah(totalKeluar);
+      document.getElementById('totalUntung').innerText = formatRupiah(untung);
+      document.getElementById('totalSaldo').innerText = formatRupiah(untung);
+
+      updateChart(totalMasuk, totalKeluar);
+      if (window.lucide) lucide.createIcons();
+    }
+
+    // LISTENER REAL-TIME FIREBASE (Setiap ada perubahan dari HP/PC mana pun, UI otomatis ter-update)
+    onSnapshot(transaksiRef, (snapshot) => {
+      transaksi = snapshot.docs.map(doc => ({
+        docId: doc.id,
+        ...doc.data()
+      }));
+      updateUI();
+    });
+
+    filterWaktu.addEventListener('change', updateUI);
+
+    // Submit Form ke Firebase Cloud
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const tanggal = document.getElementById('tanggal').value;
+      const tipe = document.getElementById('tipe').value;
+      const nominal = parseFloat(document.getElementById('nominal').value);
+      const kategori = document.getElementById('kategori').value;
+      const keterangan = document.getElementById('keterangan').value;
+
+      const dataObj = { tanggal, tipe, nominal, kategori, keterangan, createdAt: Date.now() };
+
+      btnSubmit.disabled = true;
+      btnSubmit.innerText = "Menyimpan ke Cloud...";
+
+      try {
+        if (editDocId) {
+          // Update data lama di Firebase
+          await updateDoc(doc(db, "transaksi", editDocId), dataObj);
+          batalEdit();
+        } else {
+          // Tambah data baru ke Firebase
+          await addDoc(transaksiRef, dataObj);
+          form.reset();
+          resetTanggal();
+        }
+      } catch (err) {
+        alert("Gagal menyimpan data: " + err.message);
+      } finally {
+        btnSubmit.disabled = false;
+      }
+    });
+
+    // Event Delegation Tombol Edit & Hapus
+    tabelRiwayat.addEventListener('click', async (e) => {
+      const btnEdit = e.target.closest('.btn-edit');
+      const btnHapus = e.target.closest('.btn-hapus');
+
+      if (btnEdit) {
+        const id = btnEdit.getAttribute('data-id');
+        const item = transaksi.find(t => t.docId === id);
+        if (item) {
+          editDocId = id;
+          document.getElementById('tanggal').value = item.tanggal;
+          document.getElementById('tipe').value = item.tipe;
+          document.getElementById('nominal').value = item.nominal;
+          document.getElementById('kategori').value = item.kategori;
+          document.getElementById('keterangan').value = item.keterangan;
+
+          formTitle.innerHTML = `<i data-lucide="pencil" class="w-5 h-5 text-amber-600"></i> Edit Transaksi (Cloud)`;
+          btnSubmit.innerHTML = `<i data-lucide="check-circle" class="w-4 h-4"></i> Update Transaksi`;
+          btnSubmit.className = "w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2.5 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer";
+          btnBatalEdit.classList.remove('hidden');
+
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }
+
+      if (btnHapus) {
+        const id = btnHapus.getAttribute('data-id');
+        if (confirm('Yakin ingin menghapus transaksi ini dari Cloud?')) {
+          await deleteDoc(doc(db, "transaksi", id));
+        }
+      }
+    });
+
+    function batalEdit() {
+      editDocId = null;
+      form.reset();
+      resetTanggal();
+      formTitle.innerHTML = `<i data-lucide="plus-circle" class="w-5 h-5 text-emerald-600"></i> Catat Transaksi Cepat`;
+      btnSubmit.innerHTML = `<i data-lucide="save" class="w-4 h-4"></i> Simpan Transaksi`;
+      btnSubmit.className = "w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer";
+      btnBatalEdit.classList.add('hidden');
+    }
+
+    btnBatalEdit.addEventListener('click', batalEdit);
+
+    btnHapusSemua.addEventListener('click', async () => {
+      if (confirm('Apakah kamu yakin ingin MENGHAPUS SEMUA DATA transaksi di cloud?')) {
+        for (const t of transaksi) {
+          await deleteDoc(doc(db, "transaksi", t.docId));
+        }
+        batalEdit();
+      }
+    });
+
+    resetTanggal();
+  </script>
+</body>
+</html>
